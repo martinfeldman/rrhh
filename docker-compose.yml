@@ -1,0 +1,94 @@
+version: '3.8'
+
+
+networks:
+  rrhh-network:
+    name: rrhh-network
+
+
+services:
+
+  laravel:
+    container_name: rrhh
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - rrhh_db
+      - rrhh_shared_db
+    command: 'php artisan serve --host=0.0.0.0'
+    volumes:
+      - .:/app
+    ports:
+      - "8880:8000"
+    networks:
+      - rrhh-network
+
+
+  rrhh_db:
+    container_name: rrhh_db
+    platform: linux/x86_64
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: 'rrhh'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
+      MYSQL_ROOT_USER: 'root'
+      MYSQL_ROOT_PASSWORD: ''
+    volumes:
+      - ./storage/dbdata:/var/lib/mysql
+      # - ./rrhh.sql:/docker-entrypoint-initdb.d/dump.sql
+    ports:
+      - "8886:3306"
+    networks:
+      - rrhh-network
+
+
+  rrhh_shared_db:
+    container_name: rrhh_shared_db
+    platform: linux/x86_64
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: 'shared_db'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
+      MYSQL_ROOT_USER: 'root'
+      MYSQL_ROOT_PASSWORD: ''
+    volumes:
+      - ./storage/shared_dbdata:/var/lib/mysql
+      # - ./shared_db.sql:/docker-entrypoint-initdb.d/dump.sql
+    ports:
+      - "8887:3306"
+    networks:
+      - rrhh-network
+
+
+  rrhh_composer:
+    container_name: rrhh_composer
+    image: composer:latest
+    volumes:
+      - .:/app
+    working_dir: /app
+    entrypoint: ["composer"]
+
+
+  pma:
+    container_name: rrhh_pma
+    image: phpmyadmin/phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=rrhh_db
+    restart: always
+    depends_on:
+      - rrhh_db
+      - rrhh_shared_db
+    ports:
+      - "8888:80"
+    volumes:
+      - /sessions
+    networks:
+      - rrhh-network
+
+
